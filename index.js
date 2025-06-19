@@ -465,6 +465,7 @@ app.get('/preciosdolar', async (req, res) => {
       concepto: nombre,
       compra: data.compra ? toFloat(data.compra) : null,
       venta: data.venta ? toFloat(data.venta) : null
+      // porcentaje: data.variacion
     });
 
     const cotizaciones = [
@@ -595,7 +596,7 @@ app.get('/ternero', async (req, res) => {
 });
 
 const qs = require('qs');
-function formatDate(date) {
+function formatFecha(date) {
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();
@@ -603,7 +604,7 @@ function formatDate(date) {
 }
 async function fetchIndiceByDate(date) {
   const url = 'https://www.mercadoagroganadero.com.ar/dll/hacienda2.dll/haciinfo000013';
-  const fecha = formatDate(date);
+  const fecha = formatFecha(date);
 
   const formData = {
     ID: "",
@@ -745,6 +746,107 @@ app.get('/precioschicago', async (req, res) => {
       success: false,
       message: 'Error al obtener los datos',
       error: error.message
+    });
+  }
+});
+
+// Ruta para obtener cotización de divisa del BNA
+app.get('/divisabna', async (req, res) => {
+  try {
+    const url = 'https://www.bna.com.ar/Cotizador/MonedasHistorico';
+    const response = await axios.get(url);
+    const $ = cheerio.load(response.data);
+
+    let compra = null, venta = null;
+
+    $('table tbody tr').each((_, tr) => {
+      const cols = $(tr).find('td').map((i, td) => $(td).text().trim()).get();
+      if (cols[0]?.includes('Dolar U.S.A')) {
+        compra = parseFloat(cols[1].replace(',', '.'));
+        venta = parseFloat(cols[2].replace(',', '.'));
+      }
+    });
+
+    if (compra == null || venta == null) {
+      return res.status(404).json({
+        success: false,
+        error: 'No se encontró la cotización del Dólar U.S.A en MonedasHistorico',
+      });
+    }
+
+    const fecha = getFechaFormateada();
+
+    res.json({
+      success: true,
+      data: [{
+        fecha,
+        concepto: 'Dolar Divisa',
+        compra,
+        venta
+      }]
+    });
+
+  } catch (error) {
+    console.error('Error scraping MonedasHistorico:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al obtener cotización del BNA',
+      message: error.message
+    });
+  }
+});
+
+// precios 
+app.get('/preciosbcrfuturo', async (req, res) => {
+  try {
+    const url = 'https://p2.acacoop.com.ar/dkmserver.services/html/acabaseservice.aspx';
+    const params = {
+      mt: 'GetMercadosCMA',
+      appname: 'acabase',
+      mrkt: 'MATBAPISO',
+      convert: 'TT'
+    };
+
+    const response = await axios.get(url, { params });
+    const result = response.data.result;
+
+    if (!result || result.resultCode !== 600 || !Array.isArray(result.value)) {
+      throw new Error('Respuesta inesperada del servidor ACA');
+    }
+
+    const filtrados = result.value.filter(item => {
+      const desc = item.DESCRIPCION.toLowerCase();
+
+      // Excluir soja con prefijos 'ac.' o 'har.'
+      if (desc.includes('soja') && !desc.includes('ac.') && !desc.includes('har.')) {
+        return true;
+      }
+      if (desc.includes('maiz')) {
+        return true;
+      }
+      if (desc.includes('trigo')) {
+        return true;
+      }
+      return false;
+    });
+
+    const cotizaciones = filtrados.map(item => ({
+      codigo: item.CODIGO,
+      descripcion: item.DESCRIPCION,
+      fecha: item.FECHA,
+      valor: Number(item.IMPORTE || item.ALTO || item.BAJO || 0)
+    }));
+
+    cotizaciones.sort((a, b) => a.descripcion.localeCompare(b.descripcion));
+
+    res.json({ success: true, data: cotizaciones, result: cotizaciones.length });
+
+  } catch (error) {
+    console.error('Error al obtener cotizaciones granarias:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'No se pudo obtener cotizaciones granarias',
+      message: error.message
     });
   }
 });
