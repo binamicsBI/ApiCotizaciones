@@ -4,7 +4,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const app = express();
 
-const { getFechaFormateada } = require('./formatoFecha');
+// const { getFechaFormateada } = require('./formatoFecha');
 
 
 // Configuración del token de API
@@ -78,6 +78,14 @@ function formatDate(timestamp) {
 
 function capitalizeFirst(str) {
   return str.replace(/^\w/, c => c.toUpperCase());
+}
+
+const getFechaFormateada = function getDateFormat() {
+  const hoy = new Date();
+  const year = hoy.getFullYear();
+  const month = String(hoy.getMonth() + 1).padStart(2, '0');
+  const day = String(hoy.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 app.get('/weather', async (req, res) => {
@@ -173,13 +181,7 @@ app.get('/preciosbcr', async (req, res) => {
     const fecha = fechaMatch ? `${fechaMatch[3]}-${fechaMatch[2]}-${fechaMatch[1]}` : null;
 
     // Función para obtener la fecha actual en formato ISO (yyyy-MM-dd)
-    function getFechaFormateada() {
-      const hoy = new Date();
-      const year = hoy.getFullYear();
-      const month = String(hoy.getMonth() + 1).padStart(2, '0');
-      const day = String(hoy.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
+
 
     $('.board').each((index, element) => {
       const producto = $(element).find('h3').text().trim();
@@ -213,29 +215,16 @@ app.get('/preciosbcr', async (req, res) => {
     // Convertir a objeto si no se pidió array
     const formato = req.query.formato;
 
+
     if (formato === 'array') {
-      const preciosArray = precios.map(p => ({
-        producto: p.producto,
-        fechaEjecucion: p.fechaEjecucion,
-        fecha: p.fecha,
-        precio: p.precio,
-        tendencia: p.tendencia
-      }));
-      res.json(preciosArray);
+      res.json(precios);       // Para ADF
     } else {
-      const preciosObj = {};
-      precios.forEach(p => {
-        preciosObj[p.producto] = {
-          fechaEjecucion: p.fechaEjecucion,
-          fecha: p.fecha,
-          precio: p.precio,
-          tendencia: p.tendencia
-        };
-      });
-      res.json(preciosObj);
+      res.json({ data: precios });
     }
 
-  } catch (error) {
+  }
+
+  catch (error) {
     console.error('Error al hacer scraping:', error);
     res.status(500).json({
       success: false,
@@ -244,8 +233,6 @@ app.get('/preciosbcr', async (req, res) => {
     });
   }
 });
-``
-
 
 // Ruta para obtener precios de un producto específico
 app.get('/preciosbcr/:producto', async (req, res) => {
@@ -399,8 +386,6 @@ app.get('/tasaactiva', async (req, res) => {
     let fechaVigencia = '';
     let tasaNominalAnual = '';
 
-
-
     $('body').find('p, div, span, h1, h2, h3, h4, h5, h6').each((index, element) => {
       const texto = $(element).text().trim();
 
@@ -423,19 +408,25 @@ app.get('/tasaactiva', async (req, res) => {
       });
     }
 
-    //fecha de ejecucion
-    const fecha = getFechaFormateada();
-
-    // Convertir tasa a número
+    const fechaEjecucion = getFechaFormateada();
     const tasaNominalAnualNumeric = parseFloat(tasaNominalAnual.replace(',', '.'));
 
-    const tasaActiva = {
+    const resultado = {
       concepto: "Tasa Activa BNA",
       tasa: tasaNominalAnualNumeric,
-      fecha
-    }
+      fechaVigencia,
+      fechaEjecucion
+    };
 
-    res.json({ data: [tasaActiva] });
+    const formato = req.query.formato;
+
+    if (formato === 'array') {
+      // 🔁 Para Talend
+      res.json([resultado]);
+    } else {
+      // 🧱 Para ADF
+      res.json({ data: [resultado] });
+    }
 
   } catch (error) {
     console.error('Error al hacer scraping de la tasa activa BNA:', error);
@@ -466,7 +457,6 @@ app.get('/preciosdolar', async (req, res) => {
       axios.get(urls.dolar_futuro)
     ]);
 
-    //fecha de ejecucion
     const fechaFormateada = getFechaFormateada();
 
     const toFloat = str => parseFloat(str.replace(',', '.'));
@@ -476,7 +466,6 @@ app.get('/preciosdolar', async (req, res) => {
       concepto: nombre,
       compra: data.compra ? toFloat(data.compra) : null,
       venta: data.venta ? toFloat(data.venta) : null
-      // porcentaje: data.variacion
     });
 
     const cotizaciones = [
@@ -487,7 +476,15 @@ app.get('/preciosdolar', async (req, res) => {
       parseCotizacion(futuro.data, "Futuro")
     ];
 
-    res.json({ success: true, data: cotizaciones });
+    const formato = req.query.formato;
+
+    if (formato === 'array') {
+      res.json(cotizaciones); // ✅ Para Talend
+    } else {
+      res.json({
+        data: cotizaciones // ✅ Para ADF
+      });
+    }
 
   } catch (error) {
     console.error('Error al obtener cotizaciones:', error.message);
@@ -498,6 +495,7 @@ app.get('/preciosdolar', async (req, res) => {
     });
   }
 });
+
 
 // Ruta para obtener el precio de un dólar específico según tipo
 app.get('/preciosdolar/:tipo', async (req, res) => {
@@ -552,24 +550,28 @@ app.get('/novillo', async (req, res) => {
     const response = await axios.get('https://www.decampoacampo.com/gh_funciones.php?function=getListadoPreciosGordo');
     const data = response.data;
 
-    //fecha de ejecucion
     const fechaFormateada = getFechaFormateada();
 
     const novillo = data.data.find(item => item.categoria === "Novillos 461/490 Kg.");
 
-    // console.log(novillo), para extraer mas datos
+    if (!novillo) {
+      return res.status(404).json({ success: false, error: "No se encontró la categoría solicitada." });
+    }
 
     const dataNovillo = [{
       fecha: fechaFormateada,
       concepto: novillo.categoria,
       precio: novillo.precio_semana_1
-    }]
+    }];
 
-    if (!dataNovillo) {
-      return res.status(404).json({ success: false, error: "No se encontró la categoría solicitada." });
+    // Si viene el parámetro ?formato=array
+    const formato = req.query.formato;
+    if (formato === 'array') {
+      return res.json(dataNovillo);
     }
 
-    res.json({ success: true, data: dataNovillo });
+    res.json({ data: dataNovillo });
+
   } catch (error) {
     console.error('Error al obtener el novillo:', error);
     res.status(500).json({ error: 'Error al obtener los datos del novillo' });
@@ -599,7 +601,12 @@ app.get('/ternero', async (req, res) => {
       return res.status(404).json({ success: false, error: "No se encontró la categoría solicitada." });
     }
 
-    res.json({ success: true, data: dataTernero });
+    const formato = req.query.formato;
+    if (formato === 'array') {
+      return res.json(dataTernero);
+    }
+
+    res.json({ data: dataTernero });
   } catch (error) {
     console.error('Error al obtener el novillo:', error);
     res.status(500).json({ error: 'Error al obtener los datos del novillo' });
@@ -674,6 +681,7 @@ async function fetchIndiceByDate(date) {
   }
 }
 let date = new Date();
+
 app.get('/novilloarrendamiento', async (req, res) => {
   const maxDiasAtras = 10; // intenta hasta 10 días hacia atrás si no encuentra
   let resultado = null;
@@ -685,8 +693,12 @@ app.get('/novilloarrendamiento', async (req, res) => {
     date.setDate(date.getDate() - 1);
   }
 
+  const formato = req.query.formato;
+  if (formato === 'array') {
+    return res.json([resultado]);
+  }
   if (resultado) {
-    res.json({ success: true, data: [resultado] });
+    res.json({ data: [resultado] });
   } else {
     res.status(404).json({ error: 'No se encontró índice válido en los últimos días' });
   }
@@ -746,8 +758,12 @@ app.get('/precioschicago', async (req, res) => {
       });
     }
 
+    const formato = req.query.formato;
+    if (formato === 'array') {
+      return res.json(datosValidos);
+    }
+
     res.json({
-      success: true,
       data: datosValidos
     });
 
@@ -787,15 +803,19 @@ app.get('/divisabna', async (req, res) => {
 
     const fecha = getFechaFormateada();
 
-    res.json({
-      success: true,
-      data: [{
-        fecha,
-        concepto: 'Dolar Divisa',
-        compra,
-        venta
-      }]
-    });
+    const dataDivisa = [{
+      fecha,
+      concepto: 'Dolar Divisa',
+      compra,
+      venta
+    }];
+
+    const formato = req.query.formato;
+    if (formato === 'array') {
+      return res.json(dataDivisa);
+    }
+
+    res.json({ data: dataDivisa });
 
   } catch (error) {
     console.error('Error scraping MonedasHistorico:', error);
@@ -850,7 +870,12 @@ app.get('/preciosbcrfuturo', async (req, res) => {
 
     cotizaciones.sort((a, b) => a.descripcion.localeCompare(b.descripcion));
 
-    res.json({ success: true, data: cotizaciones, result: cotizaciones.length });
+    const formato = req.query.formato;
+    if (formato === 'array') {
+      return res.json(cotizaciones);
+    }
+
+    res.json({ data: cotizaciones });
 
   } catch (error) {
     console.error('Error al obtener cotizaciones granarias:', error.message);
