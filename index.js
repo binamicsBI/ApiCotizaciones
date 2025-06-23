@@ -465,9 +465,11 @@ app.get('/preciosdolar', async (req, res) => {
     const parseCotizacion = (data, nombre) => ({
       fecha: fechaFormateada,
       concepto: nombre,
-      compra: data.compra ? toFloat(data.compra) : null,
-      venta: data.venta ? toFloat(data.venta) : null
+      compra: data.compra ? Number(toFloat(data.compra).toFixed(2)) : null,
+      venta: data.venta ? Number(toFloat(data.venta).toFixed(2)) : null
     });
+
+    console.log(parseCotizacion)
 
     const cotizaciones = [
       parseCotizacion(oficial.data, "Oficial"),
@@ -497,6 +499,7 @@ app.get('/preciosdolar', async (req, res) => {
 
   } catch (error) {
     console.error('Error al obtener cotizaciones:', error.message);
+
     res.status(500).json({
       success: false,
       error: 'No se pudo obtener cotizaciones',
