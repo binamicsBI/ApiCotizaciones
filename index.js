@@ -167,9 +167,19 @@ app.get('/preciosbcr', async (req, res) => {
 
     const precios = [];
 
+    // Extraer la fecha y convertir a formato ISO (yyyy-MM-dd)
     const fechaTexto = $('.paragraph--type--prices-board h3').text().trim();
-    const fechaMatch = fechaTexto.match(/Precios Pizarra del día (\d{2}\/\d{2}\/\d{4})/);
-    const fecha = fechaMatch ? fechaMatch[1] : 'Fecha no disponible';
+    const fechaMatch = fechaTexto.match(/Precios Pizarra del día (\d{2})\/(\d{2})\/(\d{4})/);
+    const fecha = fechaMatch ? `${fechaMatch[3]}-${fechaMatch[2]}-${fechaMatch[1]}` : null;
+
+    // Función para obtener la fecha actual en formato ISO (yyyy-MM-dd)
+    function getFechaFormateada() {
+      const hoy = new Date();
+      const year = hoy.getFullYear();
+      const month = String(hoy.getMonth() + 1).padStart(2, '0');
+      const day = String(hoy.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
 
     $('.board').each((index, element) => {
       const producto = $(element).find('h3').text().trim();
@@ -189,7 +199,6 @@ app.get('/preciosbcr', async (req, res) => {
         tendencia = 'Baja';
       }
 
-      // Fecha de ejecución
       const fechaEjecucion = getFechaFormateada();
 
       precios.push({
@@ -201,27 +210,28 @@ app.get('/preciosbcr', async (req, res) => {
       });
     });
 
-    // Convertir el array a un objeto para la respuesta por defecto
-    const preciosObj = {};
-    precios.forEach(p => {
-      preciosObj[p.producto] = {
+    // Convertir a objeto si no se pidió array
+    const formato = req.query.formato;
+
+    if (formato === 'array') {
+      const preciosArray = precios.map(p => ({
+        producto: p.producto,
         fechaEjecucion: p.fechaEjecucion,
         fecha: p.fecha,
         precio: p.precio,
         tendencia: p.tendencia
-      };
-    });
-
-    // Chequear query param para definir el formato de salida
-    const formato = req.query.formato;
-
-    if (formato === 'array') {
-      const preciosArray = Object.entries(preciosObj).map(([producto, info]) => ({
-        producto,
-        ...info
       }));
       res.json(preciosArray);
     } else {
+      const preciosObj = {};
+      precios.forEach(p => {
+        preciosObj[p.producto] = {
+          fechaEjecucion: p.fechaEjecucion,
+          fecha: p.fecha,
+          precio: p.precio,
+          tendencia: p.tendencia
+        };
+      });
       res.json(preciosObj);
     }
 
@@ -234,6 +244,8 @@ app.get('/preciosbcr', async (req, res) => {
     });
   }
 });
+``
+
 
 // Ruta para obtener precios de un producto específico
 app.get('/preciosbcr/:producto', async (req, res) => {
