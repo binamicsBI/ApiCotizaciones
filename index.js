@@ -157,6 +157,7 @@ Pronóstico de 4 días:
     res.status(500).json({ error: 'Error al obtener datos del clima' });
   }
 });
+
 // Ruta para obtener todos los precios de pizarra de la BCR
 app.get('/preciosbcr', async (req, res) => {
   try {
@@ -200,7 +201,7 @@ app.get('/preciosbcr', async (req, res) => {
       });
     });
 
-    // Convertir el array a un objeto
+    // Convertir el array a un objeto para la respuesta por defecto
     const preciosObj = {};
     precios.forEach(p => {
       preciosObj[p.producto] = {
@@ -211,7 +212,18 @@ app.get('/preciosbcr', async (req, res) => {
       };
     });
 
-    res.json(preciosObj);
+    // Chequear query param para definir el formato de salida
+    const formato = req.query.formato;
+
+    if (formato === 'array') {
+      const preciosArray = Object.entries(preciosObj).map(([producto, info]) => ({
+        producto,
+        ...info
+      }));
+      res.json(preciosArray);
+    } else {
+      res.json(preciosObj);
+    }
 
   } catch (error) {
     console.error('Error al hacer scraping:', error);
