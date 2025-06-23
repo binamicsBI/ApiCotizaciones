@@ -915,10 +915,12 @@ app.get('/preciosbcrfuturo', async (req, res) => {
       return false;
     });
 
+        const fecha = getFechaFormateada();
+
     const cotizaciones = filtrados.map(item => ({
       codigo: item.CODIGO,
       descripcion: item.DESCRIPCION,
-      fecha: item.FECHA,
+      fecha,
       valor: Number(item.IMPORTE || item.ALTO || item.BAJO || 0)
     }));
 
