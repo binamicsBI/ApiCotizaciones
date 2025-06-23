@@ -185,7 +185,7 @@ app.get('/preciosbcr', async (req, res) => {
       const producto = $(element).find('h3').text().trim();
 
       // Excluir Sorgo
-      if (producto.toLowerCase().includes('sorgo')) return;
+      // if (producto.toLowerCase().includes('sorgo')) return;
 
       const precioTexto = $(element).find('.price').text().trim();
       const precioNumerico = precioTexto !== 'S/C'
