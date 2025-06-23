@@ -175,31 +175,20 @@ app.get('/preciosbcr', async (req, res) => {
 
     const precios = [];
 
-    // Extraer la fecha y convertir a formato ISO (yyyy-MM-dd)
     const fechaTexto = $('.paragraph--type--prices-board h3').text().trim();
     const fechaMatch = fechaTexto.match(/Precios Pizarra del día (\d{2})\/(\d{2})\/(\d{4})/);
     const fecha = fechaMatch ? `${fechaMatch[3]}-${fechaMatch[2]}-${fechaMatch[1]}` : null;
 
-    // Función para obtener la fecha actual en formato ISO (yyyy-MM-dd)
-
-
     $('.board').each((index, element) => {
       const producto = $(element).find('h3').text().trim();
-
-      // Excluir Sorgo
-      // if (producto.toLowerCase().includes('sorgo')) return;
-
       const precioTexto = $(element).find('.price').text().trim();
       const precioNumerico = precioTexto !== 'S/C'
         ? parseFloat(precioTexto.replace(/\./g, '').replace(',', '.').replace('$', ''))
         : null;
 
       let tendencia = 'Sin cambios';
-      if ($(element).find('.fa-arrow-up').length > 0) {
-        tendencia = 'Sube';
-      } else if ($(element).find('.fa-arrow-down').length > 0) {
-        tendencia = 'Baja';
-      }
+      if ($(element).find('.fa-arrow-up').length > 0) tendencia = 'Sube';
+      else if ($(element).find('.fa-arrow-down').length > 0) tendencia = 'Baja';
 
       const fechaEjecucion = getFechaFormateada();
 
@@ -212,19 +201,23 @@ app.get('/preciosbcr', async (req, res) => {
       });
     });
 
-    // Convertir a objeto si no se pidió array
     const formato = req.query.formato;
 
-
-    if (formato === 'array') {
-      res.json(precios);       // Para ADF
-    } else {
-      res.json({ data: precios });
+    if (!formato || formato === 'object') {
+      return res.json({ data: precios }); // default
     }
 
-  }
+    if (formato === 'array') {
+      return res.json(precios);
+    }
 
-  catch (error) {
+    // Si llegó un valor inválido
+    return res.status(400).json({
+      success: false,
+      error: 'Parámetro inválido',
+      message: `El parámetro 'formato' debe ser 'array' o estar vacío. Valor recibido: '${formato}'`
+    });
+  } catch (error) {
     console.error('Error al hacer scraping:', error);
     res.status(500).json({
       success: false,
@@ -233,6 +226,7 @@ app.get('/preciosbcr', async (req, res) => {
     });
   }
 });
+
 
 // Ruta para obtener precios de un producto específico
 app.get('/preciosbcr/:producto', async (req, res) => {
@@ -420,13 +414,20 @@ app.get('/tasaactiva', async (req, res) => {
 
     const formato = req.query.formato;
 
-    if (formato === 'array') {
-      // 🔁 Para Talend
-      res.json([resultado]);
-    } else {
-      // 🧱 Para ADF
-      res.json({ data: [resultado] });
+    if (!formato || formato === 'object') {
+      return res.json({ data: resultado }); // default
     }
+
+    if (formato === 'array') {
+      return res.json([resultado]);
+    }
+
+    // Si llegó un valor inválido
+    return res.status(400).json({
+      success: false,
+      error: 'Parámetro inválido',
+      message: `El parámetro 'formato' debe ser 'array' o estar vacío. Valor recibido: '${formato}'`
+    });
 
   } catch (error) {
     console.error('Error al hacer scraping de la tasa activa BNA:', error);
@@ -478,13 +479,21 @@ app.get('/preciosdolar', async (req, res) => {
 
     const formato = req.query.formato;
 
-    if (formato === 'array') {
-      res.json(cotizaciones); // ✅ Para Talend
-    } else {
-      res.json({
-        data: cotizaciones // ✅ Para ADF
-      });
+
+    if (!formato || formato === 'object') {
+      return res.json({ data: cotizaciones }); // default
     }
+
+    if (formato === 'array') {
+      return res.json(cotizaciones);
+    }
+
+    // Si llegó un valor inválido
+    return res.status(400).json({
+      success: false,
+      error: 'Parámetro inválido',
+      message: `El parámetro 'formato' debe ser 'array' o estar vacío. Valor recibido: '${formato}'`
+    });
 
   } catch (error) {
     console.error('Error al obtener cotizaciones:', error.message);
@@ -495,7 +504,6 @@ app.get('/preciosdolar', async (req, res) => {
     });
   }
 });
-
 
 // Ruta para obtener el precio de un dólar específico según tipo
 app.get('/preciosdolar/:tipo', async (req, res) => {
@@ -566,11 +574,21 @@ app.get('/novillo', async (req, res) => {
 
     // Si viene el parámetro ?formato=array
     const formato = req.query.formato;
+    if (!formato || formato === 'object') {
+      return res.json({ data: dataNovillo }); // default
+    }
+
     if (formato === 'array') {
       return res.json(dataNovillo);
     }
 
-    res.json({ data: dataNovillo });
+    // Si llegó un valor inválido
+    return res.status(400).json({
+      success: false,
+      error: 'Parámetro inválido',
+      message: `El parámetro 'formato' debe ser 'array' o estar vacío. Valor recibido: '${formato}'`
+    });
+
 
   } catch (error) {
     console.error('Error al obtener el novillo:', error);
@@ -602,11 +620,21 @@ app.get('/ternero', async (req, res) => {
     }
 
     const formato = req.query.formato;
+
+    if (!formato || formato === 'object') {
+      return res.json({ data: dataTernero }); // default
+    }
+
     if (formato === 'array') {
       return res.json(dataTernero);
     }
 
-    res.json({ data: dataTernero });
+    // Si llegó un valor inválido
+    return res.status(400).json({
+      success: false,
+      error: 'Parámetro inválido',
+      message: `El parámetro 'formato' debe ser 'array' o estar vacío. Valor recibido: '${formato}'`
+    });
   } catch (error) {
     console.error('Error al obtener el novillo:', error);
     res.status(500).json({ error: 'Error al obtener los datos del novillo' });
@@ -694,14 +722,20 @@ app.get('/novilloarrendamiento', async (req, res) => {
   }
 
   const formato = req.query.formato;
+  if (!formato || formato === 'object') {
+    return res.json({ data: resultado }); // default
+  }
+
   if (formato === 'array') {
     return res.json([resultado]);
   }
-  if (resultado) {
-    res.json({ data: [resultado] });
-  } else {
-    res.status(404).json({ error: 'No se encontró índice válido en los últimos días' });
-  }
+
+  // Si llegó un valor inválido
+  return res.status(400).json({
+    success: false,
+    error: 'Parámetro inválido',
+    message: `El parámetro 'formato' debe ser 'array' o estar vacío. Valor recibido: '${formato}'`
+  });
 });
 
 // Ruta para obtener precios de chicago
@@ -759,12 +793,19 @@ app.get('/precioschicago', async (req, res) => {
     }
 
     const formato = req.query.formato;
+    if (!formato || formato === 'object') {
+      return res.json({ data: datosValidos }); // default
+    }
+
     if (formato === 'array') {
       return res.json(datosValidos);
     }
 
-    res.json({
-      data: datosValidos
+    // Si llegó un valor inválido
+    return res.status(400).json({
+      success: false,
+      error: 'Parámetro inválido',
+      message: `El parámetro 'formato' debe ser 'array' o estar vacío. Valor recibido: '${formato}'`
     });
 
   } catch (error) {
@@ -811,11 +852,21 @@ app.get('/divisabna', async (req, res) => {
     }];
 
     const formato = req.query.formato;
+    if (!formato || formato === 'object') {
+      return res.json({ data: dataDivisa }); // default
+    }
+
     if (formato === 'array') {
       return res.json(dataDivisa);
     }
 
-    res.json({ data: dataDivisa });
+    // Si llegó un valor inválido
+    return res.status(400).json({
+      success: false,
+      error: 'Parámetro inválido',
+      message: `El parámetro 'formato' debe ser 'array' o estar vacío. Valor recibido: '${formato}'`
+    });
+
 
   } catch (error) {
     console.error('Error scraping MonedasHistorico:', error);
@@ -871,11 +922,21 @@ app.get('/preciosbcrfuturo', async (req, res) => {
     cotizaciones.sort((a, b) => a.descripcion.localeCompare(b.descripcion));
 
     const formato = req.query.formato;
+
+    if (!formato || formato === 'object') {
+      return res.json({ data: cotizaciones }); // default
+    }
+
     if (formato === 'array') {
       return res.json(cotizaciones);
     }
 
-    res.json({ data: cotizaciones });
+    // Si llegó un valor inválido
+    return res.status(400).json({
+      success: false,
+      error: 'Parámetro inválido',
+      message: `El parámetro 'formato' debe ser 'array' o estar vacío. Valor recibido: '${formato}'`
+    });
 
   } catch (error) {
     console.error('Error al obtener cotizaciones granarias:', error.message);
