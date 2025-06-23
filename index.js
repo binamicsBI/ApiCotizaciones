@@ -157,7 +157,6 @@ Pronóstico de 4 días:
     res.status(500).json({ error: 'Error al obtener datos del clima' });
   }
 });
-
 // Ruta para obtener todos los precios de pizarra de la BCR
 app.get('/preciosbcr', async (req, res) => {
   try {
@@ -182,9 +181,6 @@ app.get('/preciosbcr', async (req, res) => {
         ? parseFloat(precioTexto.replace(/\./g, '').replace(',', '.').replace('$', ''))
         : null;
 
-      const diferenciaPrecio = $(element).find('.bottom .cell:nth-child(2)').text().trim();
-      const diferenciaPorcentaje = $(element).find('.bottom .cell:nth-child(4)').text().trim();
-
       let tendencia = 'Sin cambios';
       if ($(element).find('.fa-arrow-up').length > 0) {
         tendencia = 'Sube';
@@ -192,14 +188,7 @@ app.get('/preciosbcr', async (req, res) => {
         tendencia = 'Baja';
       }
 
-      let precioEstimativo = null;
-      const precioSCText = $(element).find('.price-sc').text().trim();
-      if (precioSCText) {
-        const precioEstMatch = precioSCText.match(/\(Estimativo\) (.+)/);
-        precioEstimativo = precioEstMatch ? precioEstMatch[1] : precioSCText;
-      }
-
-      //fecha de ejecucion
+      // Fecha de ejecución
       const fechaEjecucion = getFechaFormateada();
 
       precios.push({
@@ -207,24 +196,22 @@ app.get('/preciosbcr', async (req, res) => {
         producto,
         fecha,
         precio: precioNumerico,
-        // diferencia_precio: diferenciaPrecio,
-        // diferencia_porcentaje: diferenciaPorcentaje,
-        tendencia,
-        // precio_estimativo: precioEstimativo
+        tendencia
       });
     });
 
-    const footerText = $('.price-board-footer div:nth-child(2)').text().trim();
-    const horaMatch = footerText.match(/Hora: (\d{2}:\d{2})/);
-    const hora = horaMatch ? horaMatch[1] : 'Hora no disponible';
-
-    res.json({
-      success: true,
-      // fecha_actualizacion: fecha,
-      // hora_actualizacion: hora,
-      data: precios,
-      total: precios.length
+    // Convertir el array a un objeto
+    const preciosObj = {};
+    precios.forEach(p => {
+      preciosObj[p.producto] = {
+        fechaEjecucion: p.fechaEjecucion,
+        fecha: p.fecha,
+        precio: p.precio,
+        tendencia: p.tendencia
+      };
     });
+
+    res.json(preciosObj);
 
   } catch (error) {
     console.error('Error al hacer scraping:', error);
@@ -858,4 +845,3 @@ function getWeatherIcon(iconCode) {
   const iconPrefix = iconCode.slice(0, 2);
   return WEATHER_ICONS[iconPrefix] || '❓';
 }
-
