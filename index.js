@@ -175,31 +175,37 @@ app.get('/preciosbcr', async (req, res) => {
 
     const precios = [];
 
-    // Extraer la fecha y convertir a formato ISO (yyyy-MM-dd)
     const fechaTexto = $('.paragraph--type--prices-board h3').text().trim();
     const fechaMatch = fechaTexto.match(/Precios Pizarra del día (\d{2})\/(\d{2})\/(\d{4})/);
     const fecha = fechaMatch ? `${fechaMatch[3]}-${fechaMatch[2]}-${fechaMatch[1]}` : null;
 
-    // Función para obtener la fecha actual en formato ISO (yyyy-MM-dd)
+    function getFechaFormateada() {
+      const d = new Date();
+      return d.toISOString().split('T')[0];
+    }
 
+    // Primero buscamos el texto estimativo general
+    const textoPagina = $('body').text();
+    const estimativoMatch = textoPagina.match(/\(Estimativo\)\s*\$?([\d\.]+,\d{2})/);
+    const estimativo = estimativoMatch
+      ? parseFloat(estimativoMatch[1].replace(/\./g, '').replace(',', '.'))
+      : null;
 
     $('.board').each((index, element) => {
       const producto = $(element).find('h3').text().trim();
-
-      // Excluir Sorgo
-      // if (producto.toLowerCase().includes('sorgo')) return;
-
       const precioTexto = $(element).find('.price').text().trim();
-      const precioNumerico = precioTexto !== 'S/C'
-        ? parseFloat(precioTexto.replace(/\./g, '').replace(',', '.').replace('$', ''))
-        : null;
+
+      let precioNumerico = null;
+
+      if (precioTexto !== 'S/C') {
+        precioNumerico = parseFloat(precioTexto.replace(/\./g, '').replace(',', '.').replace('$', ''));
+      } else if (producto.toLowerCase().includes('girasol') && estimativo !== null) {
+        precioNumerico = estimativo;
+      }
 
       let tendencia = 'Sin cambios';
-      if ($(element).find('.fa-arrow-up').length > 0) {
-        tendencia = 'Sube';
-      } else if ($(element).find('.fa-arrow-down').length > 0) {
-        tendencia = 'Baja';
-      }
+      if ($(element).find('.fa-arrow-up').length) tendencia = 'Sube';
+      else if ($(element).find('.fa-arrow-down').length) tendencia = 'Baja';
 
       const fechaEjecucion = getFechaFormateada();
 
@@ -212,19 +218,11 @@ app.get('/preciosbcr', async (req, res) => {
       });
     });
 
-    // Convertir a objeto si no se pidió array
     const formato = req.query.formato;
+    if (formato === 'array') res.json(precios);
+    else res.json({ data: precios });
 
-
-    if (formato === 'array') {
-      res.json(precios);       // Para ADF
-    } else {
-      res.json({ data: precios });
-    }
-
-  }
-
-  catch (error) {
+  } catch (error) {
     console.error('Error al hacer scraping:', error);
     res.status(500).json({
       success: false,
@@ -608,6 +606,7 @@ app.get('/ternero', async (req, res) => {
     }
 
     const formato = req.query.formato;
+
     if (formato === 'array') {
       return res.json(dataTernero);
     }
@@ -822,6 +821,7 @@ app.get('/divisabna', async (req, res) => {
     }];
 
     const formato = req.query.formato;
+    
     if (formato === 'array') {
       return res.json(dataDivisa);
     }
